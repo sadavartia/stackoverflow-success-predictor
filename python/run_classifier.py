@@ -2,9 +2,11 @@ from sklearn.pipeline import Pipeline
 from sklearn.pipeline import FeatureUnion
 from sklearn.feature_extraction.text import TfidfVectorizer,CountVectorizer
 from sklearn.naive_bayes import *
+from sklearn.neighbors import KNeighborsRegressor
 from sklearn import metrics
 from feature_extract import *
 from data_parser import *
+from data_sampling import *
 from utils import *
 import numpy as np
 def main():
@@ -26,9 +28,12 @@ def main():
                 ('transform', ColumnIntersectionTransformer())
             ]))
         ])),
-        ('clf', MultinomialNB())
+	('estimators', Pipeline([
+        ('clf', MultinomialNB()),
+	('knn', KNeighborsRegressor())
+	]))
     ])
-
+    
 
     X,y = parse_xml_and_separate_labels('../data/Posts.xml')
     print len(X),len(y)
@@ -39,6 +44,21 @@ def main():
     predicted = pipeline.predict(X_test)
     print str(np.mean(predicted == y_test))
     Utils.write_to_file("report.txt", metrics.classification_report(y_test, predicted))
+
+    maj,min = getClassCount(X,y)
+    d = getd(X,y,maj,min)
+    G = getG(X,y,maj,min,1)
+    rlist = getRis(X,y,0,5)
+    newX,newy = generateSamples(rlist,X,y,G,0,5)
+    print len(newX),len(newy)
+    split_index=int(0.75*len(newX))
+    newX_train, newy_train = newX[0:split_index],newy[0:split_index]
+    newX_test, newy_test = newX[split_index:],newy[split_index:]
+    _ = pipeline.fit(newX_train, newy_train)
+    newPredicted = pipeline.predict(newX_test)
+    print str(np.mean(newPredicted == newy_test))
+
+
 
 if __name__ == "__main__":
     main()
